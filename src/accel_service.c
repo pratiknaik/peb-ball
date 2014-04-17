@@ -5,23 +5,13 @@
 #define DISC_DENSITY 0.25
 #define ACCEL_RATIO 0.05
 #define ACCEL_STEP_MS 50
-  
-/*typedef enum {
-  DATA_LOG_SUCCESS = 0,
-  DATA_LOG_BUSY,         //! Someone else is writing to this log
-  DATA_LOG_FULL,         //! No more space to save data
-  DATA_LOG_NOT_FOUND,    //! The log does not exist
-  DATA_LOG_CLOSED,        //! The log was made inactive
-  DATA_LOG_INVALID_PARAMS
-} DataLoggingResult;
-*/
 
 /*
 * 2d vector struct for position of ball.
 */
 typedef struct Vec2d {
-  double x;
-  double y;
+  int x;
+  int y;
 } Vec2d;
 
 /*
@@ -48,24 +38,44 @@ static AppTimer *timer;
 
 static TextLayer *text_layer;
 
-//Data logging session reference
-static DataLoggingSessionRef my_data_log;
+static DictionaryIterator *iter;
 
-/*
-* Helper method to log the accelerometer data
-*/
-void accel_data_logger(AccelData *data, uint32_t num_samples) {
-  DataLoggingResult r = data_logging_log(my_data_log, data, num_samples);
-  //text_layer = text_layer_create(GRect(10, 110, 130, 20));
-  //layer_add_child(disc_layer, text_layer_get_layer(text_layer));
-  //text_layer_set_text(text_layer, "Got here");
-}
+
+void out_sent_handler(DictionaryIterator *sent, void *context) {
+  // outgoing message was delivered YAY!!
+  Disc *disc = &discs[0];
+  Tuplet value_1 = TupletInteger(1, disc->vel.x);
+  Tuplet value_2 = TupletInteger(2, disc->vel.y);
+  dict_write_tuplet(iter, &value_1);
+  dict_write_tuplet(iter, &value_2);
+  
+  app_message_outbox_send();
+   
+ }
+
+
+ void out_failed_handler(DictionaryIterator *failed, AppMessageResult reason, void *context) {
+   // outgoing message failed
+   APP_LOG(APP_LOG_LEVEL_INFO, "FAILED");
+   
+ }
+
+
+ void in_received_handler(DictionaryIterator *received, void *context) {
+   // incoming message received
+ }
+
+
+ void in_dropped_handler(AppMessageResult reason, void *context) {
+   // incoming message dropped
+ }
+
 
 /*
 * Calculation of mass of disc
 */
 static double disc_calc_mass(Disc *disc) {
-  return MATH_PI * disc->radius * disc->radius * DISC_DENSITY;
+  return 10;//MATH_PI * disc->radius * disc->radius * DISC_DENSITY;
 }
 
 /*
@@ -145,8 +155,6 @@ static void timer_callback(void *data) {
   AccelData accel = (AccelData) { .x = 0, .y = 0, .z = 0 };
 
   accel_service_peek(&accel);
-  
-  accel_data_logger(&accel, 1);
 
   for (int i = 0; i < NUM_DISCS; i++) {
     Disc *disc = &discs[i];
@@ -176,23 +184,35 @@ static void window_load(Window *window) {
 }
 
 /*
-* Initializing the data logging
-*/
-static void data_log_init(void){
-  my_data_log = data_logging_create(
-    /* tag */ 42,
-    /* DataLogType */ DATA_LOGGING_BYTE_ARRAY,
-    /* length */ sizeof(AccelData),
-    /* resume */ true );
-}
-
-/*
 * On ending app we unload the window.
 */
 static void window_unload(Window *window) {
   layer_destroy(disc_layer);
-  data_logging_finish(my_data_log);
   text_layer_destroy(text_layer);
+}
+
+
+static void app_message_init(){
+  app_message_register_inbox_received(in_received_handler);
+  app_message_register_inbox_dropped(in_dropped_handler);
+  app_message_register_outbox_sent(out_sent_handler);
+  app_message_register_outbox_failed(out_failed_handler);
+  const uint32_t inbound_size = 64;
+  const uint32_t outbound_size = 64;
+  app_message_open(inbound_size, outbound_size);
+}
+
+static void message_sending_init(void){
+  
+  if(app_message_outbox_begin(&iter) != APP_MSG_OK){
+    return;
+  }
+  Tuplet value_1 = TupletInteger(1, 20);
+  Tuplet value_2 = TupletInteger(2, 40);
+  dict_write_tuplet(iter, &value_1);
+  dict_write_tuplet(iter, &value_2);
+  
+  app_message_outbox_send();
 }
 
 /*
@@ -208,7 +228,6 @@ static void init(void) {
   window_set_background_color(window, GColorBlack);
 
   accel_data_service_subscribe(0, NULL);
-
   timer = app_timer_register(ACCEL_STEP_MS, timer_callback, NULL);
 }
 
@@ -219,7 +238,8 @@ static void deinit(void) {
 
 int main(void) {
   init();
-  data_log_init();
+  app_message_init();
+  message_sending_init();
   app_event_loop();
   deinit();
 }
