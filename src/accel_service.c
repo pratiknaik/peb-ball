@@ -43,20 +43,37 @@ static DictionaryIterator *iter;
 
 void out_sent_handler(DictionaryIterator *sent, void *context) {
   // outgoing message was delivered YAY!!
+  text_layer_set_text(text_layer,"Debug: Succeeded to send AppMessage to Pebble");
   Disc *disc = &discs[0];
+  DictionaryIterator *iter2;
+  if(app_message_outbox_begin(&iter2) != APP_MSG_OK){
+    APP_LOG(APP_LOG_LEVEL_INFO, "OUTBOX FAILED");
+    return;
+  }
   Tuplet value_1 = TupletInteger(1, disc->vel.x);
   Tuplet value_2 = TupletInteger(2, disc->vel.y);
-  dict_write_tuplet(iter, &value_1);
-  dict_write_tuplet(iter, &value_2);
-  
+  dict_write_tuplet(iter2, &value_1);
+  dict_write_tuplet(iter2, &value_2);
   app_message_outbox_send();
    
  }
 
 
- void out_failed_handler(DictionaryIterator *failed, AppMessageResult reason, void *context) {
-   // outgoing message failed
-   APP_LOG(APP_LOG_LEVEL_INFO, "FAILED");
+void out_failed_handler(DictionaryIterator *failed, AppMessageResult reason, void *context) {
+  // outgoing message failed
+  APP_LOG(APP_LOG_LEVEL_INFO, "FAILED");
+  text_layer_set_text(text_layer,"Debug: Failed to send AppMessage to Pebble");
+  Disc *disc = &discs[0];
+  DictionaryIterator *iter2;
+  if(app_message_outbox_begin(&iter2) != APP_MSG_OK){
+    APP_LOG(APP_LOG_LEVEL_INFO, "OUTBOX FAILED");
+    return;
+  }
+  Tuplet value_1 = TupletInteger(1, disc->vel.x);
+  Tuplet value_2 = TupletInteger(2, disc->vel.y);
+  dict_write_tuplet(iter2, &value_1);
+  dict_write_tuplet(iter2, &value_2);
+  app_message_outbox_send();
    
  }
 
@@ -177,6 +194,11 @@ static void window_load(Window *window) {
   disc_layer = layer_create(frame);
   layer_set_update_proc(disc_layer, disc_layer_update_callback);
   layer_add_child(window_layer, disc_layer);
+  
+  text_layer = text_layer_create(GRect(0, 20, 90, 90));
+	text_layer_set_text_color(text_layer, GColorBlack);
+	text_layer_set_text_alignment(text_layer, GTextAlignmentCenter);
+	layer_add_child(disc_layer, (Layer*) text_layer);
 
   for (int i = 0; i < NUM_DISCS; i++) {
     disc_init(&discs[i]);
@@ -205,6 +227,7 @@ static void app_message_init(){
 static void message_sending_init(void){
   
   if(app_message_outbox_begin(&iter) != APP_MSG_OK){
+    APP_LOG(APP_LOG_LEVEL_INFO, "OUTBOX FAILED");
     return;
   }
   Tuplet value_1 = TupletInteger(1, 20);

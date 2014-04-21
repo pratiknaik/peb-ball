@@ -1,18 +1,18 @@
 {
+    "appKeys": {},
     "capabilities": [
         ""
     ],
-    "companyName": "pratiknaik3005@gmail.com",
-    "longName": "peb-ball",
     "uuid": "20da3825-9dd1-46ad-aeb8-c15d3cf329e8",
     "versionLabel": "1.0",
-    "appKeys": {},
+    "longName": "peb-ball",
+    "companyName": "pratiknaik3005@gmail.com",
     "versionCode": 1,
     "resources": {
         "media": []
     },
-    "shortName": "peb-ball",
     "watchapp": {
         "watchface": false
-    }
+    },
+    "shortName": "peb-ball"
 }
